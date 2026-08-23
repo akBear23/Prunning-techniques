@@ -44,11 +44,60 @@ hardcoded absolute paths (`/mnt/data/lannth/...`) and conda env references from 
 Search for `MODEL_CONFIGS` / `ROLLOUTS_PATH` / `_PATH` constants near the top of each file and
 point them at your own checkpoint/rollout locations before running.
 
+## Precomputed steering directions (`directions/`)
+
+Building a direction from scratch means loading the full dense model and running a forward pass
+over every calibration rollout — slow, and unnecessary if you just want to *use* the direction
+that was already validated in this project's experiments rather than rebuild your own. `directions/`
+ships the precomputed result for each model this repo covers:
+
+```
+directions/
+├── 1.5B/       DeepSeek-R1-Distill-Qwen-1.5B,   peak layer 15
+├── 7B/         DeepSeek-R1-Distill-Qwen-7B,     peak layer 15
+└── llama8B/    DeepSeek-R1-Distill-Llama-8B,    peak layer 12 (the causal_steering.py pilot model)
+```
+
+Each subfolder has:
+- `direction.npy` — the unit-normalized steering vector (float32, shape `(hidden_size,)`).
+- `meta.json` — `model_name`, `peak_layer`, `typical_norm` (mean activation norm at that layer,
+  used to scale `alpha_mult` into a raw `alpha`), the source rollouts file it was built from, and
+  how many correct/wrong rollouts went into it.
+
+These are exactly what `compute_direction()` / `compute_direction_from_saved_rollouts()` in each
+script below compute on the fly — loading the saved files instead just skips that step:
+
+```python
+import json
+import numpy as np
+import torch
+
+tag = "1.5B"  # or "7B", "llama8B"
+unit_direction = np.load(f"directions/{tag}/direction.npy")
+meta = json.load(open(f"directions/{tag}/meta.json"))
+peak_layer, typical_norm = meta["peak_layer"], meta["typical_norm"]
+
+direction_tensor = torch.tensor(unit_direction, dtype=torch.bfloat16, device="cuda")
+
+def steering_hook(module, inputs, output, alpha_mult=-2):
+    alpha = alpha_mult * typical_norm * 0.1
+    if isinstance(output, tuple):
+        return (output[0] + alpha * direction_tensor,) + output[1:]
+    return output + alpha * direction_tensor
+
+model.model.layers[peak_layer - 1].register_forward_hook(steering_hook)
+```
+
+Regenerate or extend these with [`save_steering_directions.py`](save_steering_directions.py) if
+you add a new model/size or want to rebuild from a different rollouts file — it skips any model
+whose `directions/<tag>/direction.npy` already exists, so re-running it is safe/cheap.
+
 ## Files, in the order you'd actually use them
 
 | Script | What it does |
 |---|---|
 | [`save_calib_rollouts.py`](save_calib_rollouts.py) | **Step 0.** Generates calibration rollouts (6 per problem, 40 problems from OpenR1-Math-220k, temperature 0.8) for the dense 1.5B/7B models and saves them to `all_rollouts.json`. Run this once per model size; every script below reuses its output. |
+| [`save_steering_directions.py`](save_steering_directions.py) | **Step 0.5 (optional).** Builds and saves the `directions/<tag>/direction.npy` + `meta.json` files described above from a rollouts file. Already run for you for 1.5B/7B/llama8B — only needed if you want to add a new model or rebuild from different rollouts. |
 | [`causal_steering.py`](causal_steering.py) | The original, single-model pilot: DeepSeek-R1-Distill-**Llama-8B**, layer 12, alphas `[-8, -4, 0, 4, 8]`, n=50 MATH-500 problems. The simplest, most self-contained example to read first if you want to understand the method end-to-end before looking at the more parametrized sweep scripts below. |
 | [`sparsity_sweep.py`](sparsity_sweep.py) | **The main workhorse.** Sweeps a chosen alpha list across dense + all 9 OBC-Prune sparsities (10-90%) + all 9 C4 sparsities (10-90%), for one model size (1.5B or 7B), n=100 MATH-500 problems, reusing the saved calibration rollouts and layer 15. This is what you run to answer "does steering strength/direction interact with pruning sparsity or pruning method?" |
 | [`magnitude_matched_check.py`](magnitude_matched_check.py) | Confound check: the original sweep used an asymmetric alpha grid (`-2, 0, +4`), which confounds "steering toward wrong hurts more" with "the positive alpha is just bigger in magnitude." This adds the missing symmetric points (`+2`, `-4`) so `±2` and `±4` can be compared directly. Supports an optional 3rd CLI arg to restrict which checkpoints run (for splitting work across parallel jobs). |

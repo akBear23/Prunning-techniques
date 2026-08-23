@@ -1,0 +1,9 @@
+{
+  "model_name": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+  "peak_layer": 12,
+  "typical_norm": 4.165671348571777,
+  "hidden_size": 4096,
+  "source_rollouts_path": "/mnt/data/lannth/COMP/RAC/RAC/open-r1-main/models/llama8B_daoc_sparse04/all_rollouts.json",
+  "n_correct_rollouts": 182,
+  "n_wrong_rollouts": 304
+}
