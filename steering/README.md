@@ -55,8 +55,18 @@ ships the precomputed result for each model this repo covers:
 directions/
 ├── 1.5B/       DeepSeek-R1-Distill-Qwen-1.5B,   peak layer 15
 ├── 7B/         DeepSeek-R1-Distill-Qwen-7B,     peak layer 15
-└── llama8B/    DeepSeek-R1-Distill-Llama-8B,    peak layer 12 (the causal_steering.py pilot model)
+├── llama8B/    DeepSeek-R1-Distill-Llama-8B,    peak layer 12 (the causal_steering.py pilot model)
+└── 14B/        DeepSeek-R1-Distill-Qwen-14B,    peak layer 17
 ```
+
+**Note on `14B`:** the other three directions were built from a fresh, full-size calibration set
+(40 problems x 6 rollouts each, via `save_calib_rollouts.py`). No such set existed for 14B, and
+generating one requires actually running generation on the 14B model (slow — tens of minutes to
+hours, not a quick forward pass). `directions/14B` instead reuses a smaller calibration set that
+already existed from the 14B pruning work (12 problems, 68 rollouts) — treat it as a reasonable
+starting point rather than as validated as the other three. Regenerate it with a full-size
+calibration set (`save_calib_rollouts.py`, add a 14B entry, then `save_steering_directions.py`) if
+you need the same statistical confidence as the smaller models.
 
 Each subfolder has:
 - `direction.npy` — the unit-normalized steering vector (float32, shape `(hidden_size,)`).

@@ -41,6 +41,14 @@ CONFIGS = [
         "rollouts_path": f"{PROJECT}/models/llama8B_daoc_sparse04/all_rollouts.json",
         "peak_layer": 12,
     },
+    {
+        "tag": "14B",
+        "model_name": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+        # smaller/exploratory calibration set (12 problems, 80 rollouts) reused as-is rather than
+        # regenerated -- see steering/README.md for why
+        "rollouts_path": f"{PROJECT}/models/smoke_test_14B/all_rollouts.json",
+        "peak_layer": 17,
+    },
 ]
 
 
