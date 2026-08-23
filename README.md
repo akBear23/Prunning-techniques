@@ -89,6 +89,15 @@ as **documentation of exactly how each C4 checkpoint was produced**, not as port
   evaluation.
 - [`scripts/run_wanda_14b.py`](scripts/run_wanda_14b.py) — the 14B-specific WANDA driver.
 
+## Activation steering on the pruned checkpoints (`steering/`)
+
+[`steering/`](steering/) contains a separate but related set of experiments: given a pruned
+checkpoint from the sweep above, does injecting a "correct vs. wrong reasoning" direction into a
+decoder layer's hidden state during generation *causally* change accuracy, and does that effect
+depend on sparsity or pruning method (OBC-Prune vs. C4)? See
+[`steering/README.md`](steering/README.md) for the method, prerequisites, and example commands —
+start there if you want to run these.
+
 ## What's deliberately *not* here
 
 - Evaluation/scoring code (`lighteval` invocations, results parsing) — referenced by the
