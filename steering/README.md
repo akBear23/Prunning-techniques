@@ -59,14 +59,13 @@ directions/
 └── 14B/        DeepSeek-R1-Distill-Qwen-14B,    peak layer 17
 ```
 
-**Note on `14B`:** the other three directions were built from a fresh, full-size calibration set
-(40 problems x 6 rollouts each, via `save_calib_rollouts.py`). No such set existed for 14B, and
-generating one requires actually running generation on the 14B model (slow — tens of minutes to
-hours, not a quick forward pass). `directions/14B` instead reuses a smaller calibration set that
-already existed from the 14B pruning work (12 problems, 68 rollouts) — treat it as a reasonable
-starting point rather than as validated as the other three. Regenerate it with a full-size
-calibration set (`save_calib_rollouts.py`, add a 14B entry, then `save_steering_directions.py`) if
-you need the same statistical confidence as the smaller models.
+**Note on `14B`:** built from a 40-problem calibration set (74 correct + 72 wrong rollouts, capped
+at 6/problem), same size convention as 1.5B/7B. This started from a smaller 12-problem set left
+over from the 14B pruning work and was expanded to 40 by generating rollouts for 28 additional
+`OpenR1-Math-220k` problems (same recipe as `save_calib_rollouts.py`: 6 rollouts/problem,
+temperature 0.8, `max_new_tokens=2560`) — 14B doesn't fit on a single 24GB GPU in bf16, so this
+generation step needs `device_map="auto"` sharding across 2+ GPUs if you're not running it on an
+80GB+ card.
 
 Each subfolder has:
 - `direction.npy` — the unit-normalized steering vector (float32, shape `(hidden_size,)`).

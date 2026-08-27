@@ -44,9 +44,8 @@ CONFIGS = [
     {
         "tag": "14B",
         "model_name": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
-        # smaller/exploratory calibration set (12 problems, 80 rollouts) reused as-is rather than
-        # regenerated -- see steering/README.md for why
-        "rollouts_path": f"{PROJECT}/models/smoke_test_14B/all_rollouts.json",
+        # 40-problem set (see steering/README.md) -- expanded from an original 12-problem set
+        "rollouts_path": f"{PROJECT}/models/dense_14B_calib_for_steering/all_rollouts.json",
         "peak_layer": 17,
     },
 ]
