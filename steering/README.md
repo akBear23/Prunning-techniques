@@ -35,6 +35,16 @@ script were reduced proportionally (roughly by the ~4x jump in per-sequence KV c
 starting safety margin — re-verify with a small smoke test before a full production run,
 especially on memory-constrained GPUs (e.g. 24GB cards).
 
+To avoid actually spending that full 16384-token budget on runaway completions, every
+`model.generate()` call also passes a [`RepetitionStoppingCriteria`](repetition_stopping.py): once
+a ~12-word phrase repeats near-identically ~10 times in a row *within a single sequence*, that
+sequence (not the rest of its batch) stops early. This is a direct response to what
+[`truncation_error_examples.md`](truncation_error_examples.md) found: ~90% of completions that hit
+the token cap were doing exactly this (see that file for concrete examples, plus the ~10% minority
+failure mode — "wrong-reasoning oscillation" — where the model cycles between differently-worded
+wrong approaches without literal repetition). A sequence stopped this way is still recorded as
+truncated/non-terminating in every script's output.
+
 ## Prerequisites
 
 - A pruned checkpoint sweep already produced by the code in [`../`](..) (or just the dense/HF

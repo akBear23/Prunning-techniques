@@ -28,7 +28,9 @@ import re
 import numpy as np
 import torch
 from datasets import load_dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, StoppingCriteriaList
+
+from repetition_stopping import RepetitionStoppingCriteria
 
 from lighteval.metrics.utils.extractive_match_utils import (
     ExprExtractionConfig,
@@ -160,6 +162,7 @@ def main():
         alpha = alpha_mult * typical_norm * 0.1  # scale relative to typical activation norm
         alpha_holder["alpha"] = alpha
         print(f"\n===== alpha_mult={alpha_mult} (raw alpha={alpha:.2f}) =====", flush=True)
+        rep_criteria = RepetitionStoppingCriteria(tokenizer, prompt_len)
         with torch.no_grad():
             gen = model.generate(
                 input_ids,
@@ -167,6 +170,7 @@ def main():
                 max_new_tokens=MAX_NEW_TOKENS,
                 do_sample=False,
                 pad_token_id=tokenizer.pad_token_id,
+                stopping_criteria=StoppingCriteriaList([rep_criteria]),
             )
         n_correct = 0
         n_correct_natural = 0
@@ -176,7 +180,9 @@ def main():
         for i, prob in enumerate(test_problems):
             new_tokens = gen[i, prompt_len:]
             n_nonpad = (new_tokens != tokenizer.pad_token_id).sum().item()
-            truncated = n_nonpad >= MAX_NEW_TOKENS  # used the full budget -> almost certainly cut off mid-generation
+            repetition_stopped = bool(rep_criteria.stopped and rep_criteria.stopped[i])
+            # used the full budget, or repetition-loop detector cut it short -> cut off mid-generation either way
+            truncated = n_nonpad >= MAX_NEW_TOKENS or repetition_stopped
             completion = tokenizer.decode(new_tokens, skip_special_tokens=True)
             gen_lengths.append(n_nonpad)
             gold = f"ANSWER: {prob['solution']}"

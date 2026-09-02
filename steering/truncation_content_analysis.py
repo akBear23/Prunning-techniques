@@ -20,7 +20,7 @@ Every completion (truncated or not) is saved with its full text to a JSON
 file, so you can go back and read specific examples afterward.
 
 Usage:
-    python truncation_content_analysis.py <size> <specs> [n_problems]
+    python truncation_content_analysis.py <size> <specs> [n_problems] [out_dir]
 
     <size>      "1.5B" or "7B"
     <specs>     comma-separated list of "<checkpoint>:<alpha_mult>" pairs.
@@ -30,6 +30,10 @@ Usage:
                 CHECKPOINT_PATHS below to point at a C4 checkpoint instead
                 if you want to study C4-induced non-termination).
     [n_problems] number of MATH-500 problems to test per setting (default 40)
+    [out_dir]   output directory (default "./truncation_analysis") -- override
+                this per size/run so results from different sizes or settings
+                don't overwrite each other (tags like "dense_alpha0" don't
+                include the model size).
 
 Example:
     python truncation_content_analysis.py 1.5B dense:0,dense:2,50:-2,50:0,50:2,60:0
@@ -47,7 +51,9 @@ import zlib
 import numpy as np
 import torch
 from datasets import load_dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, StoppingCriteriaList
+
+from repetition_stopping import RepetitionStoppingCriteria
 
 from lighteval.metrics.utils.extractive_match_utils import (
     ExprExtractionConfig,
@@ -185,9 +191,12 @@ def compute_direction(dense_model_name, rollouts_path, peak_layer, device):
 
 
 def main():
+    global OUT_DIR
     size = sys.argv[1]
     specs = sys.argv[2]
     n_problems = int(sys.argv[3]) if len(sys.argv) > 3 else 40
+    if len(sys.argv) > 4:
+        OUT_DIR = sys.argv[4]
     cfg = MODEL_CONFIGS[size]
     device = torch.device("cuda")
 
@@ -249,21 +258,25 @@ def main():
             input_ids = enc["input_ids"].to(device)
             attention_mask = enc["attention_mask"].to(device)
             prompt_len = input_ids.shape[1]
+            rep_criteria = RepetitionStoppingCriteria(tokenizer, prompt_len)
             with torch.no_grad():
                 gen = model.generate(
                     input_ids, attention_mask=attention_mask, max_new_tokens=TEST_MAX_NEW_TOKENS,
                     do_sample=False, pad_token_id=tokenizer.pad_token_id,
+                    stopping_criteria=StoppingCriteriaList([rep_criteria]),
                 )
             for i, prob in enumerate(batch_problems):
                 new_tokens = gen[i, prompt_len:]
                 n_nonpad = (new_tokens != tokenizer.pad_token_id).sum().item()
-                truncated = n_nonpad >= TEST_MAX_NEW_TOKENS
+                repetition_stopped = bool(rep_criteria.stopped and rep_criteria.stopped[i])
+                truncated = n_nonpad >= TEST_MAX_NEW_TOKENS or repetition_stopped
                 completion = tokenizer.decode(new_tokens, skip_special_tokens=True)
                 gold = f"ANSWER: {prob['solution']}"
                 correct = is_correct(completion, gold)
                 record = {
                     "problem": prob["problem"], "gold_solution": prob["solution"], "completion": completion,
                     "truncated": bool(truncated), "final_correct": bool(correct), "n_tokens": int(n_nonpad),
+                    "repetition_stopped": repetition_stopped,
                 }
                 if truncated:
                     record["earliest_decile_with_correct_answer"] = earliest_decile_with_correct_answer(completion, gold)
@@ -277,8 +290,9 @@ def main():
         with open(out_path, "w") as f:
             json.dump(records, f)
         n_truncated = sum(r["truncated"] for r in records)
+        n_rep_stopped = sum(r.get("repetition_stopped", False) for r in records)
         n_contains = sum(1 for r in records if r["truncated"] and r.get("earliest_decile_with_correct_answer"))
-        print(f"[{tag}] n_truncated={n_truncated}/{len(records)} | "
+        print(f"[{tag}] n_truncated={n_truncated}/{len(records)} ({n_rep_stopped} stopped early via repetition detection) | "
               f"of those, contains-correct-answer-somewhere={n_contains}/{n_truncated if n_truncated else 1}", flush=True)
         print(f"[{tag}] Saved full completions to {out_path}", flush=True)
         handle.remove()

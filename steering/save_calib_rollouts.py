@@ -13,7 +13,9 @@ import json
 
 import torch
 from datasets import load_dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, StoppingCriteriaList
+
+from repetition_stopping import RepetitionStoppingCriteria
 
 from lighteval.metrics.utils.extractive_match_utils import (
     ExprExtractionConfig,
@@ -100,6 +102,8 @@ def generate_and_save(cfg):
         prompt_text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         enc = tokenizer(prompt_text, return_tensors="pt", truncation=True, max_length=MAX_SEQ_LEN)
         input_ids = enc["input_ids"].to(device)
+        prompt_len = input_ids.shape[1]
+        rep_criteria = RepetitionStoppingCriteria(tokenizer, prompt_len)
         with torch.no_grad():
             gen = model.generate(
                 input_ids,
@@ -108,8 +112,8 @@ def generate_and_save(cfg):
                 temperature=CALIB_TEMPERATURE,
                 num_return_sequences=N_ROLLOUTS_PER_PROBLEM,
                 pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
+                stopping_criteria=StoppingCriteriaList([rep_criteria]),
             )
-        prompt_len = input_ids.shape[1]
         gold = f"ANSWER: {row['answer']}"
         correct_rollouts, wrong_rollouts = [], []
         for r in range(gen.shape[0]):

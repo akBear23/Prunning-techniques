@@ -19,7 +19,9 @@ import sys
 import numpy as np
 import torch
 from datasets import load_dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, StoppingCriteriaList
+
+from repetition_stopping import RepetitionStoppingCriteria
 
 from lighteval.metrics.utils.extractive_match_utils import (
     ExprExtractionConfig,
@@ -159,6 +161,7 @@ def run_sweep_on_checkpoint(model, tokenizer, direction_np, typical_norm, peak_l
             input_ids = enc["input_ids"].to(device)
             attention_mask = enc["attention_mask"].to(device)
             prompt_len = input_ids.shape[1]
+            rep_criteria = RepetitionStoppingCriteria(tokenizer, prompt_len)
             with torch.no_grad():
                 gen = model.generate(
                     input_ids,
@@ -166,11 +169,13 @@ def run_sweep_on_checkpoint(model, tokenizer, direction_np, typical_norm, peak_l
                     max_new_tokens=TEST_MAX_NEW_TOKENS,
                     do_sample=False,
                     pad_token_id=tokenizer.pad_token_id,
+                    stopping_criteria=StoppingCriteriaList([rep_criteria]),
                 )
             for i, prob in enumerate(batch_problems):
                 new_tokens = gen[i, prompt_len:]
                 n_nonpad = (new_tokens != tokenizer.pad_token_id).sum().item()
-                truncated = n_nonpad >= TEST_MAX_NEW_TOKENS
+                repetition_stopped = bool(rep_criteria.stopped and rep_criteria.stopped[i])
+                truncated = n_nonpad >= TEST_MAX_NEW_TOKENS or repetition_stopped
                 completion = tokenizer.decode(new_tokens, skip_special_tokens=True)
                 gold = f"ANSWER: {prob['solution']}"
                 correct = is_correct(completion, gold)
