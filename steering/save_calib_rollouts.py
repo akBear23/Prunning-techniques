@@ -28,7 +28,7 @@ MAX_SEQ_LEN = 4096
 N_CALIB_PROBLEMS = 40
 N_ROLLOUTS_PER_PROBLEM = 6
 CALIB_TEMPERATURE = 0.8
-CALIB_MAX_NEW_TOKENS = 2560
+CALIB_MAX_NEW_TOKENS = 16384
 
 MATH_QUERY_TEMPLATE = """
 Solve the following problem. The final line of your response MUST be of the following format:

@@ -44,8 +44,10 @@ ROLLOUTS_PATH = "/mnt/data/lannth/COMP/RAC/RAC/open-r1-main/models/llama8B_daoc_
 LAYER = 12
 MAX_SEQ_LEN = 4096
 N_TEST_PROBLEMS = 50
-MAX_NEW_TOKENS = 4096  # raised well above observed generation lengths (~1020 tokens at the most extreme
-                        # alpha in the pilot run) to remove the truncation confound -- also tracked explicitly below
+MAX_NEW_TOKENS = 16384  # project-wide standard cap (was 4096); tracked explicitly below via truncated flag
+# NOTE: this script generates all N_TEST_PROBLEMS in one unbatched call (no chunking, unlike
+# sparsity_sweep.py etc.) -- fine at the old 4096 cap on an 80GB GPU, but the ~4x larger KV cache
+# at 16384 may need this loop split into sub-batches if you hit OOM.
 ALPHAS = [-8, -4, 0, 4, 8]
 
 MATH_QUERY_TEMPLATE = """

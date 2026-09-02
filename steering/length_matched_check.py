@@ -45,7 +45,7 @@ from lighteval.utils.language import Language
 
 MAX_SEQ_LEN = 4096
 N_TEST_PROBLEMS = 100
-TEST_MAX_NEW_TOKENS = 4096
+TEST_MAX_NEW_TOKENS = 16384
 ALPHAS = [-2, 0, 2]
 MAX_ROLLOUTS_PER_CLASS_PER_PROBLEM = 6
 
@@ -66,7 +66,7 @@ MODEL_CONFIGS = {
         "dense_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
         "rollouts_path": "/mnt/data/lannth/COMP/RAC/RAC/open-r1-main/models/dense_1.5B_calib_for_steering/all_rollouts.json",
         "peak_layer": 15,
-        "batch_size_test": 50,
+        "batch_size_test": 12,  # reduced from 50: 16384-token cap means ~4x the KV cache per sequence
         "checkpoints": (
             [("dense", "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B")]
             + [(f"obc_{sp}", f"/mnt/data/lannth/COMP/RAC/RAC/open-r1-main/models/sweep_daoc_1.5B_sparse{sp}") for sp in SPARSITIES]
@@ -77,7 +77,7 @@ MODEL_CONFIGS = {
         "dense_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
         "rollouts_path": "/mnt/data/lannth/COMP/RAC/RAC/open-r1-main/models/dense_7B_calib_for_steering/all_rollouts.json",
         "peak_layer": 15,
-        "batch_size_test": 25,
+        "batch_size_test": 6,  # reduced from 25: 16384-token cap means ~4x the KV cache per sequence
         "checkpoints": (
             [("dense", "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B")]
             + [(f"obc_{sp}", f"/mnt/data/lannth/COMP/RAC/RAC/open-r1-main/models/sweep_daoc_7B_sparse{sp}") for sp in SPARSITIES]

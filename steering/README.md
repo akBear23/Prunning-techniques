@@ -25,6 +25,16 @@ state during generation, see if accuracy moves.** Everything below is variations
 5. Generate on a **held-out** problem set (MATH-500) and measure whether accuracy moves with
    `alpha_mult`, across a range of pruning sparsities and both pruning methods (OBC-Prune and C4).
 
+## Generation length standard
+
+Every script here caps generation at **`max_new_tokens=16384`** — both evaluation/steering
+generations and calibration rollout generation. This was raised project-wide from an earlier
+4096 (2560 for calibration) cap; keep it consistent across runs, since truncation rate is itself
+a measured quantity here and results at different caps aren't comparable. Batch sizes in each
+script were reduced proportionally (roughly by the ~4x jump in per-sequence KV cache) as a
+starting safety margin — re-verify with a small smoke test before a full production run,
+especially on memory-constrained GPUs (e.g. 24GB cards).
+
 ## Prerequisites
 
 - A pruned checkpoint sweep already produced by the code in [`../`](..) (or just the dense/HF

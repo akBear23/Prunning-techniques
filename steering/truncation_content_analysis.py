@@ -59,7 +59,7 @@ from lighteval.metrics.utils.math_comparison import compare_gold_target
 from lighteval.utils.language import Language
 
 MAX_SEQ_LEN = 4096
-TEST_MAX_NEW_TOKENS = 4096
+TEST_MAX_NEW_TOKENS = 16384
 OUT_DIR = "./truncation_analysis"
 
 # Same per-size settings as sparsity_sweep.py -- edit paths for your setup.
@@ -68,7 +68,7 @@ MODEL_CONFIGS = {
         "dense_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
         "rollouts_path": "./models/dense_1.5B_calib_for_steering/all_rollouts.json",
         "peak_layer": 15,
-        "batch_size": 40,
+        "batch_size": 10,  # reduced from 40: 16384-token cap means ~4x the KV cache per sequence
         "checkpoint_paths": {  # sparsity_pct (str) -> local path or HF id
             str(sp): f"./models/sweep_daoc_1.5B_sparse{sp}" for sp in [10, 20, 30, 40, 50, 60, 70, 80, 90]
         },
@@ -77,7 +77,7 @@ MODEL_CONFIGS = {
         "dense_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
         "rollouts_path": "./models/dense_7B_calib_for_steering/all_rollouts.json",
         "peak_layer": 15,
-        "batch_size": 20,
+        "batch_size": 5,  # reduced from 20: 16384-token cap means ~4x the KV cache per sequence
         "checkpoint_paths": {
             str(sp): f"./models/sweep_daoc_7B_sparse{sp}" for sp in [10, 20, 30, 40, 50, 60, 70, 80, 90]
         },
