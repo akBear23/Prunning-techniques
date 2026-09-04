@@ -145,6 +145,24 @@ builds the direction in one pass) — rebuild just the direction from an existin
 (e.g. after changing the pooling logic) with [`rebuild_loop_direction.py`](rebuild_loop_direction.py)
 instead of resampling.
 
+**Steering with it works, and works better than the standard direction at this sparsity.**
+[`steer_with_loop_direction.py`](steer_with_loop_direction.py) applies this direction to the same
+checkpoint it was built from and evaluates on n=100 held-out MATH-500 problems (results:
+`directions/pruned_loop_1.5B_obc60/steering_eval_results.json`):
+
+| `alpha_mult` | Accuracy | Truncation rate |
+|---|---|---|
+| -2 (away from "loops forever") | **47.0%** | **58.0%** |
+| 0 (no steering) | 28.0% | 94.0% |
+| +2 (toward "loops forever") | 23.0% | 100% |
+
+Both metrics move monotonically and substantially with `alpha_mult`, as intended. Notably, this is
+a *much* bigger effect than the standard right/wrong-answer direction gets at 60% sparsity (that
+one is essentially flat here, ~62-63% accuracy across all three alphas in the main
+`sparsity_sweep.py` results) — once a model is failing mostly by *not stopping* rather than by
+*reasoning incorrectly*, a direction built specifically from that failure mode is a much more
+targeted lever than a generic correctness direction.
+
 ## Files, in the order you'd actually use them
 
 | Script | What it does |
@@ -156,6 +174,8 @@ instead of resampling.
 | [`magnitude_matched_check.py`](magnitude_matched_check.py) | Confound check: the original sweep used an asymmetric alpha grid (`-2, 0, +4`), which confounds "steering toward wrong hurts more" with "the positive alpha is just bigger in magnitude." This adds the missing symmetric points (`+2`, `-4`) so `±2` and `±4` can be compared directly. Supports an optional 3rd CLI arg to restrict which checkpoints run (for splitting work across parallel jobs). |
 | [`length_matched_check.py`](length_matched_check.py) | Confound check: wrong rollouts are, on average, longer than correct ones. This rebuilds the direction from only *length-matched* correct/wrong pairs (greedy nearest-length pairing) to rule out "the direction is really just encoding response length," then re-runs the same alpha sweep for direct comparison against the unmatched-direction result. |
 | [`truncation_content_analysis.py`](truncation_content_analysis.py) | A different question about the *non-terminating* completions (the ones that hit the token cap instead of stopping): do they contain the correct answer somewhere before the cutoff (and just keep rambling), or does the model genuinely never find it? Also reports how repetitive the tail of the text is and how much self-correction language ("wait", "let me recheck", ...) appears near the end. Consolidates what used to be 4 near-duplicate scripts into one, parametrized by checkpoint + alpha list. |
+| [`sample_pruned_loop_direction.py`](sample_pruned_loop_direction.py) | Builds the "loops forever vs. terminates correctly" direction described above, from a pruned checkpoint's own rollouts. [`rebuild_loop_direction.py`](rebuild_loop_direction.py) recomputes just the direction from an already-saved `all_rollouts.json`. |
+| [`steer_with_loop_direction.py`](steer_with_loop_direction.py) | Applies the loop direction to its source checkpoint and evaluates accuracy + truncation rate across an alpha list on held-out MATH-500 — this produced the results table above. |
 
 ## Example invocations
 
