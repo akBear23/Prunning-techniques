@@ -2,15 +2,23 @@
 A generation-time StoppingCriteria that ends a sequence early once a
 phrase-sized chunk of its generated text has repeated (near-identically)
 many times in a row -- the "verbatim repetition loop" failure mode
-documented in ../new_paper_reasoning_signatures/truncation_error_examples.md,
-which accounts for ~90% of truncated (hit max_new_tokens) completions in
-this project's pruning/steering experiments.
+documented in truncation_error_examples.md, which accounts for ~90-99% of
+truncated (hit max_new_tokens) completions in this project's
+pruning/steering experiments.
 
 Without this, a rollout that starts looping at token 500 still burns the
 full max_new_tokens budget (16384) before returning -- this catches it
 early and frees that sequence's slot for the next batch, without affecting
 sequences that are still making real progress. Stops per-sequence (uses
 HF's per-row StoppingCriteria protocol), not the whole batch.
+
+Checks MULTIPLE phrase-length granularities (not just one fixed size):
+an earlier single-granularity version (phrase_words=12 only) missed loops
+whose repeating unit was a full paragraph (~75 words) -- ten consecutive
+12-word chunks only spans ~1.5 cycles of a 75-word unit, so they never
+match each other even though the text is obviously looping. Checking
+several phrase sizes (short phrases through full-paragraph-length units)
+catches repeats at whatever granularity they actually occur at.
 
 Usage (assumes left-padded batch tokenization, as used throughout this
 project's steering scripts):
@@ -25,16 +33,20 @@ project's steering scripts):
 import torch
 from transformers import StoppingCriteria
 
+DEFAULT_PHRASE_WORD_OPTIONS = (10, 20, 40, 80, 150)
+
 
 class RepetitionStoppingCriteria(StoppingCriteria):
-    def __init__(self, tokenizer, prompt_len, phrase_words=12, consecutive_repeats=10,
-                 check_every=20, similarity_threshold=0.75):
+    def __init__(self, tokenizer, prompt_len, phrase_word_options=DEFAULT_PHRASE_WORD_OPTIONS,
+                 consecutive_repeats=10, check_every=20, similarity_threshold=0.75,
+                 decode_window_tokens=4000):
         self.tokenizer = tokenizer
         self.prompt_len = prompt_len
-        self.phrase_words = phrase_words
+        self.phrase_word_options = phrase_word_options
         self.consecutive_repeats = consecutive_repeats
         self.check_every = check_every
         self.similarity_threshold = similarity_threshold
+        self.decode_window_tokens = decode_window_tokens
         self.stopped = None  # per-sequence bool list, sized lazily on first call
 
     @staticmethod
@@ -49,16 +61,25 @@ class RepetitionStoppingCriteria(StoppingCriteria):
         union = len(sa | sb)
         return (len(sa & sb) / union) >= threshold if union else False
 
-    def _has_repetition(self, text):
-        words = text.split()
-        needed = self.phrase_words * self.consecutive_repeats
+    def _has_repetition_at_granularity(self, words, phrase_words):
+        needed = phrase_words * self.consecutive_repeats
         if len(words) < needed:
             return False
         tail_words = words[-needed:]
-        chunks = [" ".join(tail_words[i:i + self.phrase_words])
-                  for i in range(0, needed, self.phrase_words)]
+        chunks = [" ".join(tail_words[i:i + phrase_words])
+                  for i in range(0, needed, phrase_words)]
         last = chunks[-1]
         return all(self._similar(c, last, self.similarity_threshold) for c in chunks)
+
+    def _has_repetition(self, text):
+        words = text.split()
+        # largest granularity first -- a real loop that satisfies a large phrase size
+        # almost certainly also looks repetitive at smaller sizes, so this short-circuits
+        # the common (bad) case fastest.
+        for phrase_words in sorted(self.phrase_word_options, reverse=True):
+            if self._has_repetition_at_granularity(words, phrase_words):
+                return True
+        return False
 
     def __call__(self, input_ids, scores, **kwargs):
         batch_size = input_ids.shape[0]
@@ -70,6 +91,10 @@ class RepetitionStoppingCriteria(StoppingCriteria):
                 if self.stopped[i]:
                     continue
                 new_tokens = input_ids[i, self.prompt_len:]
+                # bound decode cost: only the tail window can possibly contain a
+                # complete run of consecutive_repeats copies of the largest phrase
+                if new_tokens.shape[0] > self.decode_window_tokens:
+                    new_tokens = new_tokens[-self.decode_window_tokens:]
                 text = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
                 if self._has_repetition(text):
                     self.stopped[i] = True

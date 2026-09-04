@@ -121,6 +121,30 @@ Regenerate or extend these with [`save_steering_directions.py`](save_steering_di
 you add a new model/size or want to rebuild from a different rollouts file — it skips any model
 whose `directions/<tag>/direction.npy` already exists, so re-running it is safe/cheap.
 
+### A different kind of direction: "loops forever" vs. "terminates correctly"
+
+`directions/pruned_loop_1.5B_obc60/` is a variant direction with a different split than every
+other one here. The directions above all contrast *right answer* vs. *wrong answer* on the
+**dense** model. This one is built from a **pruned** checkpoint's own rollouts (1.5B, OBC-Prune
+60% sparsity) and contrasts:
+- **correct**: terminates naturally (doesn't hit the token cap) AND matches the gold answer.
+- **looped_wrong**: truncated — hit `max_new_tokens` or got cut short by the repetition-loop
+  detector (see [`repetition_stopping.py`](repetition_stopping.py)) — i.e. the "cannot stop"
+  failure mode characterized in
+  [`truncation_error_examples.md`](truncation_error_examples.md).
+
+Rollouts that terminate naturally but land on a *wrong* answer are saved (in `all_rollouts.json`,
+under `"terminated_wrong"`) but excluded from the direction — they're neither success nor the
+looping failure this direction targets. Vectors are pooled globally across all problems (8
+rollouts/problem, 40 problems) rather than requiring each individual problem to have contributed
+both a correct and a looped rollout, since many problems in a heavily-pruned checkpoint
+consistently do only one or the other.
+
+Built by [`sample_pruned_loop_direction.py`](sample_pruned_loop_direction.py) (samples rollouts +
+builds the direction in one pass) — rebuild just the direction from an existing `all_rollouts.json`
+(e.g. after changing the pooling logic) with [`rebuild_loop_direction.py`](rebuild_loop_direction.py)
+instead of resampling.
+
 ## Files, in the order you'd actually use them
 
 | Script | What it does |

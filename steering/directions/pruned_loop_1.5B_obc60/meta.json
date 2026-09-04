@@ -1,0 +1,15 @@
+{
+  "model_path": "./models/sweep_daoc_1.5B_sparse60",
+  "model_description": "DeepSeek-R1-Distill-Qwen-1.5B, OBC-Prune, 60% sparsity (HF: AnKhanh/Deepseek-Distill-Qwen-prune, path 1.5B/sparse60)",
+  "n_rollouts_per_problem": 8,
+  "n_problems": 40,
+  "temperature": 0.8,
+  "max_new_tokens": 16384,
+  "peak_layer": 15,
+  "typical_norm": 56.1466178894043,
+  "hidden_size": 1536,
+  "source_rollouts_path": "./loopdir_1.5B_sparse60/all_rollouts.json",
+  "direction_semantics": "looped_wrong (cannot stop) minus correct (terminates + right answer), pooled globally across all problems (no per-question pairing required)",
+  "n_correct_rollouts_used": 39,
+  "n_looped_wrong_rollouts_used": 190
+}
