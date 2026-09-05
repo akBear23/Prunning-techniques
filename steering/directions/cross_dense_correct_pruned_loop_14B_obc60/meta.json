@@ -1,0 +1,12 @@
+{
+  "dense_model_path": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+  "pruned_model_path": "./models/sweep_daoc_14B_sparse60",
+  "peak_layer": 17,
+  "typical_norm": 52.14472579956055,
+  "hidden_size": 5120,
+  "dense_rollouts_path": "./models/dense_14B_calib_for_steering/all_rollouts.json",
+  "pruned_rollouts_path": "./loopdir_14B_sparse60/all_rollouts.json",
+  "direction_semantics": "PRUNED model's looped_wrong (encoded by pruned model) minus DENSE model's correct (encoded by dense model)",
+  "n_correct_rollouts_used": 98,
+  "n_looped_wrong_rollouts_used": 49
+}
