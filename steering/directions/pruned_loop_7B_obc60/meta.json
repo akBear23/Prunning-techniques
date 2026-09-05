@@ -1,0 +1,15 @@
+{
+  "model_path": "./models/sweep_daoc_7B_sparse60",
+  "model_description": "DeepSeek-R1-Distill-Qwen-7B, OBC-Prune, 60% sparsity (HF: AnKhanh/Deepseek-Distill-Qwen-prune, path 7B/sparse60)",
+  "peak_layer": 15,
+  "typical_norm": 119.4142074584961,
+  "hidden_size": 3584,
+  "source_rollouts_path": "./loopdir_7B_sparse60/all_rollouts.json",
+  "direction_semantics": "looped_wrong (cannot stop) minus correct (terminates + right answer)",
+  "n_correct_rollouts_used": 118,
+  "n_looped_wrong_rollouts_used": 57,
+  "n_problems": 40,
+  "n_rollouts_per_problem": 8,
+  "temperature": 0.8,
+  "max_new_tokens": 16384
+}
