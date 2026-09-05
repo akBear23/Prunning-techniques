@@ -145,23 +145,31 @@ builds the direction in one pass) — rebuild just the direction from an existin
 (e.g. after changing the pooling logic) with [`rebuild_loop_direction.py`](rebuild_loop_direction.py)
 instead of resampling.
 
-**Steering with it works, and works better than the standard direction at this sparsity.**
-[`steer_with_loop_direction.py`](steer_with_loop_direction.py) applies this direction to the same
-checkpoint it was built from and evaluates on n=100 held-out MATH-500 problems (results:
-`directions/pruned_loop_1.5B_obc60/steering_eval_results.json`):
+**Steering with it works.** [`steer_with_loop_direction.py`](steer_with_loop_direction.py) applies
+this direction to the same checkpoint it was built from and evaluates on n=100 held-out MATH-500
+problems (results: `directions/pruned_loop_1.5B_obc60/steering_eval_results.json`):
 
 | `alpha_mult` | Accuracy | Truncation rate |
 |---|---|---|
-| -2 (away from "loops forever") | **47.0%** | **58.0%** |
+| -2 (away from "loops forever") | **47.0%** | 58.0% |
 | 0 (no steering) | 28.0% | 94.0% |
 | +2 (toward "loops forever") | 23.0% | 100% |
 
-Both metrics move monotonically and substantially with `alpha_mult`, as intended. Notably, this is
-a *much* bigger effect than the standard right/wrong-answer direction gets at 60% sparsity (that
-one is essentially flat here, ~62-63% accuracy across all three alphas in the main
-`sparsity_sweep.py` results) — once a model is failing mostly by *not stopping* rather than by
-*reasoning incorrectly*, a direction built specifically from that failure mode is a much more
-targeted lever than a generic correctness direction.
+Both metrics move monotonically and substantially with `alpha_mult`, as intended. **Comparison
+against the standard right/wrong-answer direction** at the same sparsity (from the historical
+`sparsity_sweep_n100_1p5b_phase1.log` run, old 4096-token cap, no repetition-stopping):
+`alpha=-2`: acc=44.0%/trunc=45%; `alpha=0`: acc=31.0%/trunc=93%; `alpha=+2`: acc=24.0%/trunc=100%.
+The standard direction is *not* flat at this sparsity (contrary to an earlier draft of this note) —
+it has a comparably large effect. The two directions converge to nearly the same outcome at
+`alpha=0`/`alpha=+2` (pushing toward "wrong" and pushing toward "looping" both drive this
+heavily-degraded checkpoint to the same near-total collapse either way). The interesting difference
+is at `alpha=-2`: the loop direction reaches *higher* accuracy (47% vs. 44%) but *also* higher
+measured truncation (58% vs. 45%) — not a clean "wins on both metrics" result. That combination
+suggests a meaningful share of the loop-direction's truncated completions still contain a correct
+answer before the model starts looping, rather than the loop direction uniformly suppressing
+truncation. (Note: the two runs used different token caps/repetition-stopping settings, so treat
+this as suggestive rather than a fully controlled comparison — rerunning the standard direction at
+16384 tokens would make it exact.)
 
 ## Files, in the order you'd actually use them
 
