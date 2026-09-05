@@ -1,0 +1,26 @@
+[
+  {
+    "alpha_mult": -2.0,
+    "raw_alpha": -10.507831573486328,
+    "accuracy": 0.71,
+    "truncation_rate": 0.31,
+    "n_rep_stopped": 26,
+    "n": 100
+  },
+  {
+    "alpha_mult": 0.0,
+    "raw_alpha": 0.0,
+    "accuracy": 0.65,
+    "truncation_rate": 0.41,
+    "n_rep_stopped": 38,
+    "n": 100
+  },
+  {
+    "alpha_mult": 2.0,
+    "raw_alpha": 10.507831573486328,
+    "accuracy": 0.63,
+    "truncation_rate": 0.59,
+    "n_rep_stopped": 54,
+    "n": 100
+  }
+]
